@@ -40,7 +40,6 @@ INSTALLED_APPS = [
 
     'rest_framework',
     'corsheaders', # Si vous l'avez installé
-    'myapp',       # Future app
 ]
 
 MIDDLEWARE = [
