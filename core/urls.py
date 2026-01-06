@@ -21,11 +21,8 @@ from rest_framework_simplejwt.views import (
     TokenObtainPairView,
     TokenRefreshView,
 )
-from . import views
 
 urlpatterns = [
-    # Page d'accueil
-    path("", views.home, name="home"),
     # Admin Django
     path("admin/", admin.site.urls),
     # Authentification et gestion utilisateur
@@ -38,4 +35,7 @@ urlpatterns = [
     path(
         "api/token/refresh/", TokenRefreshView.as_view(), name="token_refresh"
     ),  # Refresh token
+    # Projets et contributeurs
+    # Inclut: /api/projects/, /api/projects/{id}/, /api/projects/{id}/contributors/
+    path("api/", include("projects.urls")),
 ]
