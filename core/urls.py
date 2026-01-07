@@ -35,7 +35,8 @@ urlpatterns = [
     path(
         "api/token/refresh/", TokenRefreshView.as_view(), name="token_refresh"
     ),  # Refresh token
-    # Projets et contributeurs
-    # Inclut: /api/projects/, /api/projects/{id}/, /api/projects/{id}/contributors/
+    # Projets, contributeurs, issues et commentaires
+    # Inclut: /api/projects/, /api/projects/{id}/contributors/, /api/projects/{id}/issues/
+    # /api/projects/{id}/issues/{id}/comments/
     path("api/", include("projects.urls")),
 ]

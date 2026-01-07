@@ -8,6 +8,7 @@ class CustomUserAdmin(UserAdmin):
     """Admin configuration for CustomUser."""
 
     list_display = [
+        "id",
         "username",
         "email",
         "age",

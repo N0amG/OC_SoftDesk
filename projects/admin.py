@@ -6,7 +6,7 @@ from .models import Project, Contributor
 class ProjectAdmin(admin.ModelAdmin):
     """Configuration de l'interface admin pour Project."""
 
-    list_display = ["name", "type", "author", "created_time"]
+    list_display = ["id", "name", "type", "author", "created_time"]
     list_filter = ["type", "created_time"]
     search_fields = ["name", "description", "author__username"]
     readonly_fields = ["created_time"]
@@ -22,7 +22,7 @@ class ProjectAdmin(admin.ModelAdmin):
 class ContributorAdmin(admin.ModelAdmin):
     """Configuration de l'interface admin pour Contributor."""
 
-    list_display = ["user", "project", "role", "created_time"]
+    list_display = ["id", "user", "project", "role", "created_time"]
     list_filter = ["role", "created_time"]
     search_fields = ["user__username", "project__name"]
     readonly_fields = ["created_time"]
