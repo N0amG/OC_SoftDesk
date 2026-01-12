@@ -8,6 +8,11 @@ from .serializers import (
     ProjectDetailSerializer,
     ContributorSerializer,
 )
+from .permissions import (
+    IsProjectAuthor,
+    IsProjectContributor,
+    IsProjectAuthorForContributors,
+)
 
 
 class ProjectViewSet(viewsets.ModelViewSet):
@@ -17,11 +22,16 @@ class ProjectViewSet(viewsets.ModelViewSet):
     - list: Liste tous les projets où l'utilisateur est contributeur
     - retrieve: Détail d'un projet
     - create: Crée un nouveau projet
-    - update/partial_update: Modifie un projet
-    - destroy: Supprime un projet
+    - update/partial_update: Modifie un projet (auteur uniquement)
+    - destroy: Supprime un projet (auteur uniquement)
+    
+    Permissions :
+    - IsAuthenticated : utilisateur authentifié requis
+    - IsProjectContributor : doit être contributeur pour accéder au projet
+    - IsProjectAuthor : doit être auteur pour modifier/supprimer
     """
 
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsProjectContributor, IsProjectAuthor]
 
     def get_queryset(self):
         """
@@ -45,11 +55,13 @@ class ProjectViewSet(viewsets.ModelViewSet):
         """
         serializer.save(author=self.request.user)
 
-    @action(detail=True, methods=["get", "post"])
+    @action(detail=True, methods=["get", "post"], permission_classes=[IsAuthenticated, IsProjectAuthorForContributors])
     def contributors(self, request, pk=None):
         """
-        GET: Liste les contributeurs d'un projet
-        POST: Ajoute un contributeur à un projet
+        GET: Liste les contributeurs d'un projet (tous les contributeurs)
+        POST: Ajoute un contributeur à un projet (auteur uniquement)
+        
+        Les permissions sont gérées par IsProjectAuthorForContributors.
         """
         project = self.get_object()
 
@@ -59,15 +71,6 @@ class ProjectViewSet(viewsets.ModelViewSet):
             return Response(serializer.data)
 
         elif request.method == "POST":
-            # Seul l'auteur peut ajouter des contributeurs
-            if project.author != request.user:
-                return Response(
-                    {
-                        "detail": "Seul l'auteur du projet peut ajouter des contributeurs."
-                    },
-                    status=status.HTTP_403_FORBIDDEN,
-                )
-
             serializer = ContributorSerializer(
                 data=request.data, context={"request": request, "view": self}
             )
@@ -83,9 +86,13 @@ class ContributorViewSet(viewsets.ModelViewSet):
     """
     ViewSet pour gérer les contributeurs.
     Accessible via /api/projects/{project_pk}/contributors/
+    
+    Permissions :
+    - IsAuthenticated : utilisateur authentifié requis
+    - IsProjectAuthorForContributors : gère les permissions de lecture/écriture
     """
 
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsProjectAuthorForContributors]
     serializer_class = ContributorSerializer
 
     def get_queryset(self):
@@ -94,31 +101,22 @@ class ContributorViewSet(viewsets.ModelViewSet):
         return Contributor.objects.filter(project_id=project_pk)
 
     def perform_create(self, serializer):
-        """Ajoute un contributeur au projet."""
+        """
+        Ajoute un contributeur au projet.
+        Les permissions sont vérifiées par IsProjectAuthorForContributors.
+        """
         project_pk = self.kwargs.get("project_pk")
         project = Project.objects.get(pk=project_pk)
-
-        # Vérifie que seul l'auteur peut ajouter des contributeurs
-        if project.author != self.request.user:
-            return Response(
-                {"detail": "Seul l'auteur du projet peut ajouter des contributeurs."},
-                status=status.HTTP_403_FORBIDDEN,
-            )
 
         # Par défaut, le rôle est "contributor"
         serializer.save(project=project, role="contributor")
 
     def destroy(self, request, *args, **kwargs):
-        """Supprime un contributeur d'un projet."""
+        """
+        Supprime un contributeur d'un projet.
+        Les permissions sont vérifiées par IsProjectAuthorForContributors.
+        """
         contributor = self.get_object()
-        project = contributor.project
-
-        # Vérifie que seul l'auteur peut supprimer des contributeurs
-        if project.author != request.user:
-            return Response(
-                {"detail": "Seul l'auteur du projet peut supprimer des contributeurs."},
-                status=status.HTTP_403_FORBIDDEN,
-            )
 
         # Empêche la suppression de l'auteur lui-même
         if contributor.role == "author":

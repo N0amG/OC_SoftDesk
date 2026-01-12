@@ -1,0 +1,45 @@
+# Configuration Dependabot pour maintenir les dépendances à jour
+# Documentation : https://docs.github.com/en/code-security/dependabot/dependabot-version-updates
+
+version: 2
+updates:
+  # Surveillance des dépendances Python (pip)
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "Europe/Paris"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+      - "python"
+    # Regrouper les mises à jour mineures et patches ensemble
+    groups:
+      django-updates:
+        patterns:
+          - "django*"
+        update-types:
+          - "minor"
+          - "patch"
+      drf-updates:
+        patterns:
+          - "djangorestframework*"
+        update-types:
+          - "minor"
+          - "patch"
+    # Ignorer les versions spécifiques si nécessaire
+    # ignore:
+    #   - dependency-name: "django"
+    #     versions: ["5.x"]
+    
+  # Surveillance des GitHub Actions (si vous en utilisez)
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    labels:
+      - "dependencies"
+      - "github-actions"
