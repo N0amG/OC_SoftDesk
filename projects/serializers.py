@@ -56,10 +56,11 @@ class ProjectListSerializer(serializers.ModelSerializer):
 
 
 class ProjectDetailSerializer(serializers.ModelSerializer):
-    """Serializer pour le détail d'un projet avec tous les contributeurs."""
+    """Serializer pour le détail d'un projet - imbrication limitée (1 niveau)."""
 
     author_username = serializers.CharField(source="author.username", read_only=True)
-    contributors = ContributorSerializer(many=True, read_only=True)
+    # Liste uniquement les IDs et usernames pour alléger la réponse
+    contributors_list = serializers.SerializerMethodField()
 
     class Meta:
         model = Project
@@ -69,10 +70,22 @@ class ProjectDetailSerializer(serializers.ModelSerializer):
             "description",
             "type",
             "author_username",
-            "contributors",
+            "contributors_list",
             "created_time",
         ]
         read_only_fields = ["id", "created_time"]
+
+    def get_contributors_list(self, obj):
+        """Retourne une liste simplifiée des contributeurs (1 niveau d'imbrication)."""
+        return [
+            {
+                "id": contributor.id,
+                "user_id": contributor.user.id,
+                "username": contributor.user.username,
+                "role": contributor.role,
+            }
+            for contributor in obj.contributors.all()
+        ]
 
     def create(self, validated_data):
         """
@@ -83,7 +96,7 @@ class ProjectDetailSerializer(serializers.ModelSerializer):
 
         # Ajoute automatiquement l'auteur comme contributeur avec le rôle "author"
         Contributor.objects.create(
-            project=project, user=validated_data["author"], role="author"
+            project=project, user=validated_data["author"], role=Contributor.ROLE_AUTHOR
         )
 
         return project

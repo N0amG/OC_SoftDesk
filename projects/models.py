@@ -26,6 +26,14 @@ class Project(models.Model):
     def __str__(self):
         return f"{self.name} ({self.type})"
 
+    def is_author(self, user):
+        """Vérifie si l'utilisateur est l'auteur du projet."""
+        return self.author == user
+
+    def is_contributor(self, user):
+        """Vérifie si l'utilisateur est contributeur du projet."""
+        return self.contributors.filter(user=user).exists()
+
 
 class Contributor(models.Model):
     """
@@ -33,9 +41,13 @@ class Contributor(models.Model):
     Représente un contributeur sur un projet avec son rôle.
     """
 
+    # Constantes de rôles
+    ROLE_AUTHOR = "author"
+    ROLE_CONTRIBUTOR = "contributor"
+
     ROLE_CHOICES = [
-        ("author", "Autheur"),
-        ("contributor", "Contributeur"),
+        (ROLE_AUTHOR, "Auteur"),
+        (ROLE_CONTRIBUTOR, "Contributeur"),
     ]
 
     user = models.ForeignKey(

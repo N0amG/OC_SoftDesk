@@ -1,5 +1,6 @@
 from rest_framework import viewsets
 from rest_framework.permissions import IsAuthenticated
+from django.shortcuts import get_object_or_404
 from .models import Issue, Comment
 from .serializers import IssueListSerializer, IssueDetailSerializer, CommentSerializer
 from .permissions import IsIssueAuthorOrReadOnly, IsCommentAuthorOrReadOnly
@@ -24,9 +25,15 @@ class IssueViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated, IsIssueAuthorOrReadOnly]
 
     def get_queryset(self):
-        """Retourne les problèmes du projet spécifié."""
+        """Retourne les problèmes du projet spécifié.
+        Optimisé avec select_related et prefetch_related.
+        """
         project_pk = self.kwargs.get("project_pk")
-        return Issue.objects.filter(project_id=project_pk)
+        return (
+            Issue.objects.filter(project_id=project_pk)
+            .select_related("author", "assignee", "project")  # Charge en une requête
+            .prefetch_related("comments")  # Charge les commentaires si nécessaire
+        )
 
     def get_serializer_class(self):
         """Utilise un serializer différent selon l'action."""
@@ -41,7 +48,7 @@ class IssueViewSet(viewsets.ModelViewSet):
         Les permissions sont vérifiées par IsIssueAuthorOrReadOnly.
         """
         project_pk = self.kwargs.get("project_pk")
-        project = Project.objects.get(pk=project_pk)
+        project = get_object_or_404(Project, pk=project_pk)
 
         serializer.save(author=self.request.user, project=project)
 
@@ -67,9 +74,14 @@ class CommentViewSet(viewsets.ModelViewSet):
     serializer_class = CommentSerializer
 
     def get_queryset(self):
-        """Retourne les commentaires du problème spécifié."""
+        """Retourne les commentaires du problème spécifié.
+        Optimisé avec select_related.
+        """
         issue_pk = self.kwargs.get("issue_pk")
-        return Comment.objects.filter(issue_id=issue_pk)
+        return (
+            Comment.objects.filter(issue_id=issue_pk)
+            .select_related("author", "issue")  # Charge en une requête
+        )
 
     def perform_create(self, serializer):
         """

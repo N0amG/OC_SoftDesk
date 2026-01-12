@@ -45,7 +45,7 @@ class IssueListSerializer(serializers.ModelSerializer):
 
 
 class IssueDetailSerializer(serializers.ModelSerializer):
-    """Serializer pour le détail d'un problème avec tous les commentaires."""
+    """Serializer pour le détail d'un problème - imbrication limitée (1 niveau)."""
 
     author_username = serializers.CharField(source="author.username", read_only=True)
     assignee_username = serializers.CharField(
@@ -54,7 +54,8 @@ class IssueDetailSerializer(serializers.ModelSerializer):
     assignee_id = serializers.PrimaryKeyRelatedField(
         queryset=CustomUser.objects.all(), source="assignee", required=False, allow_null=True
     )
-    comments = CommentSerializer(many=True, read_only=True)
+    # Liste simplifiée des commentaires au lieu d'objets complets
+    comments_list = serializers.SerializerMethodField()
 
     class Meta:
         model = Issue
@@ -68,11 +69,27 @@ class IssueDetailSerializer(serializers.ModelSerializer):
             "author_username",
             "assignee_username",
             "assignee_id",
-            "comments",
+            "comments_list",
             "project",
             "created_time",
         ]
         read_only_fields = ["id", "created_time", "project"]
+
+    def get_comments_list(self, obj):
+        """Retourne une liste simplifiée des commentaires (1 niveau d'imbrication)."""
+        return [
+            {
+                "id": comment.id,
+                "author_username": comment.author.username,
+                "description": (
+                    comment.description[:100] + "..."
+                    if len(comment.description) > 100
+                    else comment.description
+                ),
+                "created_time": comment.created_time,
+            }
+            for comment in obj.comments.all()[:5]  # Limite à 5 commentaires
+        ]
 
     def validate_assignee_id(self, value):
         """Valide que l'assignee est un contributeur du projet."""

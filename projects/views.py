@@ -2,6 +2,7 @@ from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
+from django.shortcuts import get_object_or_404
 from .models import Project, Contributor
 from .serializers import (
     ProjectListSerializer,
@@ -11,6 +12,7 @@ from .serializers import (
 from .permissions import (
     IsProjectAuthor,
     IsProjectContributor,
+    IsProjectAuthorForContributorManagement,
     IsProjectAuthorForContributors,
 )
 
@@ -37,10 +39,17 @@ class ProjectViewSet(viewsets.ModelViewSet):
         """
         Retourne uniquement les projets où l'utilisateur est contributeur.
         Est automatiquement appelé par les actions list, retrieve, update, destroy.
+        Optimisé avec select_related et prefetch_related pour éviter les requêtes N+1.
         """
         user = self.request.user
-        # Récupère tous les projets où l'utilisateur est contributeur
-        return Project.objects.filter(contributors__user=user).distinct()
+        # Optimisation : charge l'auteur et les contributeurs en une seule requête
+        queryset = (
+            Project.objects.filter(contributors__user=user)
+            .select_related("author")  # Charge l'auteur en une requête
+            .prefetch_related("contributors__user")  # Charge les contributeurs
+            .distinct()
+        )
+        return queryset
 
     def get_serializer_class(self):
         """Utilise un serializer différent selon l'action."""
@@ -58,14 +67,14 @@ class ProjectViewSet(viewsets.ModelViewSet):
     @action(
         detail=True,
         methods=["get", "post"],
-        permission_classes=[IsAuthenticated, IsProjectAuthorForContributors],
+        permission_classes=[IsAuthenticated, IsProjectAuthorForContributorManagement],
     )
     def contributors(self, request, pk=None):
         """
         GET: Liste les contributeurs d'un projet (tous les contributeurs)
         POST: Ajoute un contributeur à un projet (auteur uniquement)
 
-        Les permissions sont gérées par IsProjectAuthorForContributors.
+        Les permissions sont gérées par IsProjectAuthorForContributorManagement.
         """
         project = self.get_object()
 
@@ -100,9 +109,14 @@ class ContributorViewSet(viewsets.ModelViewSet):
     serializer_class = ContributorSerializer
 
     def get_queryset(self):
-        """Retourne les contributeurs du projet spécifié."""
+        """Retourne les contributeurs du projet spécifié.
+        Optimisé avec select_related pour charger les users.
+        """
         project_pk = self.kwargs.get("project_pk")
-        return Contributor.objects.filter(project_id=project_pk)
+        return (
+            Contributor.objects.filter(project_id=project_pk)
+            .select_related("user", "project")  # Charge user et project en une requête
+        )
 
     def perform_create(self, serializer):
         """
@@ -110,10 +124,10 @@ class ContributorViewSet(viewsets.ModelViewSet):
         Les permissions sont vérifiées par IsProjectAuthorForContributors.
         """
         project_pk = self.kwargs.get("project_pk")
-        project = Project.objects.get(pk=project_pk)
+        project = get_object_or_404(Project, pk=project_pk)
 
         # Par défaut, le rôle est "contributor"
-        serializer.save(project=project, role="contributor")
+        serializer.save(project=project, role=Contributor.ROLE_CONTRIBUTOR)
 
     def destroy(self, request, *args, **kwargs):
         """
@@ -123,7 +137,7 @@ class ContributorViewSet(viewsets.ModelViewSet):
         contributor = self.get_object()
 
         # Empêche la suppression de l'auteur lui-même
-        if contributor.role == "author":
+        if contributor.role == Contributor.ROLE_AUTHOR:
             return Response(
                 {"detail": "L'auteur du projet ne peut pas être retiré."},
                 status=status.HTTP_400_BAD_REQUEST,
