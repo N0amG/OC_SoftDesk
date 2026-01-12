@@ -24,7 +24,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
     - create: Crée un nouveau projet
     - update/partial_update: Modifie un projet (auteur uniquement)
     - destroy: Supprime un projet (auteur uniquement)
-    
+
     Permissions :
     - IsAuthenticated : utilisateur authentifié requis
     - IsProjectContributor : doit être contributeur pour accéder au projet
@@ -55,12 +55,16 @@ class ProjectViewSet(viewsets.ModelViewSet):
         """
         serializer.save(author=self.request.user)
 
-    @action(detail=True, methods=["get", "post"], permission_classes=[IsAuthenticated, IsProjectAuthorForContributors])
+    @action(
+        detail=True,
+        methods=["get", "post"],
+        permission_classes=[IsAuthenticated, IsProjectAuthorForContributors],
+    )
     def contributors(self, request, pk=None):
         """
         GET: Liste les contributeurs d'un projet (tous les contributeurs)
         POST: Ajoute un contributeur à un projet (auteur uniquement)
-        
+
         Les permissions sont gérées par IsProjectAuthorForContributors.
         """
         project = self.get_object()
@@ -86,7 +90,7 @@ class ContributorViewSet(viewsets.ModelViewSet):
     """
     ViewSet pour gérer les contributeurs.
     Accessible via /api/projects/{project_pk}/contributors/
-    
+
     Permissions :
     - IsAuthenticated : utilisateur authentifié requis
     - IsProjectAuthorForContributors : gère les permissions de lecture/écriture
